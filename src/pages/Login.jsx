@@ -9,14 +9,42 @@ export default function Login() {
   const [mensagem, setMensagem] = useState('');
   const [carregando, setCarregando] = useState(false);
 
+  // Lista de gestores permitidos e suas senhas fixas (Mude as senhas se desejar)
+  const GESTORES_VALIDOS = {
+    'gestor.smd@empresa.com': 'smd123',
+    'gestor.sesmt@empresa.com': 'sesmt123',
+    'gestor.facilities@empresa.com': 'fac123',
+  };
+
   const lidarComLogin = async (e) => {
     e.preventDefault();
     setMensagem('');
     setCarregando(true);
 
+    const emailLimpo = email.trim().toLowerCase();
+
+    // 🌟 INTERCEPTAÇÃO: Verifica se é uma tentativa de login de Gestor
+    if (emailLimpo.startsWith('gestor.')) {
+      setTimeout(() => { // Simula um leve delay para ficar natural
+        if (GESTORES_VALIDOS[emailLimpo] && GESTORES_VALIDOS[emailLimpo] === password) {
+          // Salva os dados do gestor no navegador
+          localStorage.setItem('user_role', 'gestor');
+          localStorage.setItem('gestor_email', emailLimpo);
+          
+          // Dispara o evento avisando o App.jsx para atualizar a tela
+          window.dispatchEvent(new Event('gestorLoginChange'));
+        } else {
+          setMensagem('Erro: E-mail ou senha do gestor incorretos.');
+          setCarregando(false);
+        }
+      }, 800);
+      return; // Para a execução aqui e não vai pro Supabase
+    }
+
+    // 👤 FLUHO NORMAL: Login de Colaborador comum via Supabase
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: emailLimpo,
         password: password,
       });
 
@@ -36,7 +64,6 @@ export default function Login() {
         {/* CARTÃO AZUL (LOGO + FRASE INTEGRADOS) */}
         <div style={{ backgroundColor: '#0072db', padding: '30px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
           <div style={{ marginBottom: '1px' }}>
-            {/* Sua logo M (Certifique-se de que ela seja a versão com a letra M em branco/transparente) */}
             <img src={logoM} alt="Logo M" style={{ width: '140px', height: 'auto', display: 'block' }} />
           </div>
           <h2 style={{ margin: 0, color: 'white', fontSize: '20px', fontWeight: 'bold', lineHeight: '1.4' }}>
