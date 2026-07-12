@@ -27,16 +27,29 @@ export default function Aprovacoes() {
     setCarregando(true);
     const statusAlvo = nivelGestor === 'Direto' ? 'Aguardando_Gestor' : 'Aguardando_Facilities';
 
-    const { data, error } = await supabase
-      .from('solicitacoes')
-      .select('*')
-      .eq('status', statusAlvo)
-      .order('data_hora', { ascending: true });
+    try {
+      // 🌟 CONSTRUÇÃO DA QUERY DINÂMICA
+      let query = supabase
+        .from('solicitacoes')
+        .select('*')
+        .eq('status', statusAlvo);
 
-    if (!error && data) {
-      setSolicitacoes(data);
+      // 🔥 SE FOR GESTOR DIRETO (SMD ou SESMT), FILTRA APENAS O SEU PRÓPRIO SETOR
+      // Nota: Certifique-se de que o nome da coluna no seu banco seja exatamente 'setor'
+      if (nivelGestor === 'Direto') {
+        query = query.eq('setor', setorAtual);
+      }
+
+      const { data, error } = await query.order('data_hora', { ascending: true });
+
+      if (!error && data) {
+        setSolicitacoes(data);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar dados do Supabase:", err);
+    } finally {
+      setCarregando(false);
     }
-    setCarregando(false);
   };
 
   useEffect(() => {
@@ -111,7 +124,7 @@ export default function Aprovacoes() {
           </p>
         </div>
 
-        {/* INDICADOR REAL DE QUEM ESTÁ LOGADO (Substituiu o seletor antigo de testes) */}
+        {/* INDICADOR REAL DE QUEM ESTÁ LOGADO */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f1f5f9', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
           <span>Painel do Setor:</span>
           <span style={{ backgroundColor: '#0072db', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
@@ -161,6 +174,14 @@ export default function Aprovacoes() {
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '600' }}>{item.material}</h3>
                   <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>Qtd: <strong style={{ color: '#0f172a' }}>{item.quantidade}</strong></p>
+                </div>
+
+                {/* 🌟 IDENTIFICADOR VISUAL DO SETOR DO ITEM (Para conferência) */}
+                <div style={{ fontSize: '12px' }}>
+                  <span style={{ color: '#94a3b8' }}>Setor de Origem: </span>
+                  <span style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontWeight: '600', color: '#475569' }}>
+                    {item.setor}
+                  </span>
                 </div>
 
                 <div style={{ fontSize: '13px', color: '#475569', backgroundColor: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
