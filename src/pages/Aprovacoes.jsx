@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../config/supabase';
-import { Check, X, Eye, Clock, User, ArrowRight, FileText, Loader2 } from 'lucide-react';
+import { Check, X, Clock, User, FileText, Loader2 } from 'lucide-react';
 
 export default function Aprovacoes() {
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [submetendo, setSubmetendo] = useState(null); // Armazena o ID do card em aprovação
+  const [submetendo, setSubmetendo] = useState(null); 
   const [mensagem, setMensagem] = useState('');
   
-  // Seletor temporário de nível de aprovação para testes
-  const [nivelGestor, setNivelGestor] = useState('Direto'); // 'Direto' ou 'Facilities'
+  // 🌟 PEGA O GESTOR LOGADO DO LOCALSTORAGE
+  const gestorEmail = localStorage.getItem('gestor_email') || '';
+  
+  // Descobre o nome do setor baseado no email
+  const obterSetor = () => {
+    if (gestorEmail.includes('smd')) return 'SMD';
+    if (gestorEmail.includes('facilities')) return 'Facilities';
+    return 'SESMT'; // Padrão caso seja gestor.sesmt
+  };
 
-  // Busca as solicitações dependendo do nível selecionado
+  const setorAtual = obterSetor();
+  // Se for do setor Facilities, o nível é 'Facilities'. Se for SMD ou SESMT, é 'Direto'.
+  const nivelGestor = setorAtual === 'Facilities' ? 'Facilities' : 'Direto';
+
+  // Busca as solicitações dependendo do nível real do gestor logado
   const buscarPendentes = async () => {
     setCarregando(true);
     const statusAlvo = nivelGestor === 'Direto' ? 'Aguardando_Gestor' : 'Aguardando_Facilities';
@@ -30,7 +41,7 @@ export default function Aprovacoes() {
 
   useEffect(() => {
     buscarPendentes();
-  }, [nivelGestor]);
+  }, [gestorEmail]); // Executa ao detectar o e-mail do gestor
 
   // Função para Processar a Decisão (Aprovar ou Reprovar)
   const processarAprovacao = async (id, acao) => {
@@ -41,28 +52,27 @@ export default function Aprovacoes() {
 
     if (acao === 'aprovar') {
       if (nivelGestor === 'Direto') {
-        novoStatus = 'Aguardando_Facilities'; // Avança para o passo 3
+        novoStatus = 'Aguardando_Facilities'; 
         dadosAtualizacao = {
           status: novoStatus,
-          aprovacao_gestor_por: 'Supervisor Carlos', // Simulado
+          aprovacao_gestor_por: `Gestor ${setorAtual}`, // 🌟 Assinatura Dinâmica!
           aprovacao_gestor_data: dataAtual
         };
       } else {
-        novoStatus = 'Aprovado_Saida'; // Avança para a portaria (passo 4)
+        novoStatus = 'Aprovado_Saida'; 
         dadosAtualizacao = {
           status: novoStatus,
-          aprovacao_facilities_por: 'Gestor Facilities Amanda', // Simulado
+          aprovacao_facilities_por: `Gestor ${setorAtual}`, // 🌟 Assinatura Dinâmica!
           aprovacao_facilities_data: dataAtual
         };
       }
     } else {
-      novoStatus = 'Reprovado'; // Fim de linha
+      novoStatus = 'Reprovado'; 
       dadosAtualizacao = {
         status: novoStatus,
-        // Registra quem reprovou
         ...(nivelGestor === 'Direto' 
-          ? { aprovacao_gestor_por: 'Supervisor Carlos (Reprovou)', aprovacao_gestor_data: dataAtual }
-          : { aprovacao_facilities_por: 'Facilities Amanda (Reprovou)', aprovacao_facilities_data: dataAtual }
+          ? { aprovacao_gestor_por: `Gestor ${setorAtual} (Reprovou)`, aprovacao_gestor_data: dataAtual }
+          : { aprovacao_facilities_por: `Gestor ${setorAtual} (Reprovou)`, aprovacao_facilities_data: dataAtual }
         )
       };
     }
@@ -78,7 +88,6 @@ export default function Aprovacoes() {
       setMensagem(`Solicitação ${acao === 'aprovar' ? 'aprovada' : 'reprovada'} com sucesso!`);
       setTimeout(() => setMensagem(''), 4000);
       
-      // Remove o item da lista visual instantaneamente
       setSolicitacoes(solicitacoes.filter(item => item.id !== id));
     } catch (err) {
       console.error(err);
@@ -94,24 +103,20 @@ export default function Aprovacoes() {
       {/* CABEÇALHO DA TELA */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '2px solid #f1f5f9', paddingBottom: '16px' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '700' }}>Painel de Aprovações Pendentes</h2>
-          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>Analise e despache os pedidos da esteira de saída.</p>
+          <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '700' }}>
+            Painel de Aprovações Pendentes
+          </h2>
+          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>
+            Analise e despache os pedidos da esteira de saída.
+          </p>
         </div>
 
-        {/* SELETOR DE TESTES DE NÍVEL (Simula quem está logado) */}
-        <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
-          <button 
-            onClick={() => setNivelGestor('Direto')}
-            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', backgroundColor: nivelGestor === 'Direto' ? '#ffffff' : 'transparent', color: nivelGestor === 'Direto' ? '#0072db' : '#64748b', boxShadow: nivelGestor === 'Direto' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}
-          >
-            Nível 1: Sup. Direto
-          </button>
-          <button 
-            onClick={() => setNivelGestor('Facilities')}
-            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', backgroundColor: nivelGestor === 'Facilities' ? '#ffffff' : 'transparent', color: nivelGestor === 'Facilities' ? '#0072db' : '#64748b', boxShadow: nivelGestor === 'Facilities' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}
-          >
-            Nível 2: Facilities
-          </button>
+        {/* INDICADOR REAL DE QUEM ESTÁ LOGADO (Substituiu o seletor antigo de testes) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f1f5f9', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+          <span>Painel do Setor:</span>
+          <span style={{ backgroundColor: '#0072db', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+            {setorAtual}
+          </span>
         </div>
       </div>
 
@@ -125,12 +130,12 @@ export default function Aprovacoes() {
       {/* ESTADO DE CARREGANDO */}
       {carregando ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: '#64748b' }}>
-          <Loader2 className="animate-spin" size={24} /> <span style={{ marginLeft: '8px' }}>Buscando solicitações da esteira...</span>
+          <Loader2 className="animate-spin" size={24} /> <span style={{ marginLeft: '8px' }}>Buscando solicitações...</span>
         </div>
       ) : solicitacoes.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' }}>
           <Clock size={40} style={{ marginBottom: '12px', color: '#cbd5e1' }} />
-          <p style={{ margin: 0, fontSize: '15px', fontWeight: '500' }}>Nenhuma solicitação aguardando sua aprovação no momento.</p>
+          <p style={{ margin: 0, fontSize: '15px', fontWeight: '500' }}>Nenhuma solicitação aguardando aprovação para o setor {setorAtual}.</p>
         </div>
       ) : (
         
@@ -139,7 +144,6 @@ export default function Aprovacoes() {
           {solicitacoes.map((item) => (
             <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
               
-              {/* Imagem do Material ou Placeholder */}
               <div style={{ width: '100%', height: '140px', backgroundColor: '#f8fafc', position: 'relative' }}>
                 {item.foto_url ? (
                   <img src={item.foto_url} alt={item.material} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -153,7 +157,6 @@ export default function Aprovacoes() {
                 </span>
               </div>
 
-              {/* Detalhes do Pedido */}
               <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '600' }}>{item.material}</h3>
@@ -178,14 +181,12 @@ export default function Aprovacoes() {
                   </div>
                 </div>
 
-                {/* Link para o Anexo se existir */}
                 {item.anexo_url && (
                   <a href={item.anexo_url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#0072db', fontWeight: '600', textDecoration: 'none', marginTop: '4px' }}>
                     <FileText size={14} /> Ver Documento Anexo / OS
                   </a>
                 )}
 
-                {/* BOTÕES DE AÇÃO INTERATIVOS */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '12px' }}>
                   <button 
                     disabled={submetendo === item.id}
